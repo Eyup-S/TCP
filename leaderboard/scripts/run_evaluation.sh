@@ -1,14 +1,16 @@
-#!/bin/bash
-export CARLA_ROOT= PATH_TO_CARLA
+
+export CARLA_ROOT=${1:-/home/transfuser/autonomous_car/transfuser/carla}
+export WORK_DIR=${2:-/home/transfuser/TCP}
 export CARLA_SERVER=${CARLA_ROOT}/CarlaUE4.sh
 export PYTHONPATH=$PYTHONPATH:${CARLA_ROOT}/PythonAPI
 export PYTHONPATH=$PYTHONPATH:${CARLA_ROOT}/PythonAPI/carla
 export PYTHONPATH=$PYTHONPATH:$CARLA_ROOT/PythonAPI/carla/dist/carla-0.9.10-py3.7-linux-x86_64.egg
-export PYTHONPATH=$PYTHONPATH:leaderboard
-export PYTHONPATH=$PYTHONPATH:leaderboard/team_code
-export PYTHONPATH=$PYTHONPATH:scenario_runner
+export PYTHONPATH=$PYTHONPATH:$WORK_DIR/leaderboard
+export PYTHONPATH=$PYTHONPATH:$WORK_DIR/leaderboard/team_code
+export PYTHONPATH=$PYTHONPATH:$WORK_DIR/scenario_runner
+export PYTHONPATH=$PYTHONPATH:$WORK_DIR
 
-export LEADERBOARD_ROOT=leaderboard
+export LEADERBOARD_ROOT=${WORK_DIR}/leaderboard
 export CHALLENGE_TRACK_CODENAME=SENSORS
 export PORT=2000
 export TM_PORT=8000
@@ -18,12 +20,12 @@ export RESUME=True
 
 
 # TCP evaluation
-export ROUTES=leaderboard/data/evaluation_routes/routes_lav_valid.xml
-export TEAM_AGENT=team_code/tcp_agent.py
-export TEAM_CONFIG= PATH_TO_MODEL_CKPT
-export CHECKPOINT_ENDPOINT=results_TCP.json
-export SCENARIOS=leaderboard/data/scenarios/all_towns_traffic_scenarios.json
-export SAVE_PATH=data/results_TCP/
+export ROUTES=$WORK_DIR/leaderboard/data/evaluation_routes/routes_town05_long.xml
+export TEAM_AGENT=$WORK_DIR/team_code/tcp_agent.py
+export TEAM_CONFIG=${3:-/home/transfuser/TCP/model_ckpt/best_model.ckpt}
+export CHECKPOINT_ENDPOINT=$WORK_DIR/results_TCP.json
+export SCENARIOS=$WORK_DIR/leaderboard/data/scenarios/town05_all_scenarios.json
+export SAVE_PATH=$WORK_DIR/data/results_TCP/
 
 
 python3 ${LEADERBOARD_ROOT}/leaderboard/leaderboard_evaluator.py \
@@ -38,6 +40,6 @@ python3 ${LEADERBOARD_ROOT}/leaderboard/leaderboard_evaluator.py \
 --record=${RECORD_PATH} \
 --resume=${RESUME} \
 --port=${PORT} \
---trafficManagerPort=${TM_PORT}
+#--trafficManagerPort=${TM_PORT}
 
 

@@ -27,6 +27,7 @@ import carla
 import copy
 import signal
 
+
 from srunner.scenariomanager.carla_data_provider import *
 from srunner.scenariomanager.timer import GameTime
 from srunner.scenariomanager.watchdog import Watchdog
@@ -108,8 +109,8 @@ class LeaderboardEvaluator(object):
         self.client.set_timeout(self.client_timeout)
 
         try:
-            self.traffic_manager = self.client.get_trafficmanager(int(args.trafficManagerPort))
-            # self.traffic_manager = self.client.get_trafficmanager(8000)
+            #self.traffic_manager = self.client.get_trafficmanager(int(args.trafficManagerPort))
+            self.traffic_manager = self.client.get_trafficmanager(8000)
         except Exception as e:
             print(e)
         dist = pkg_resources.get_distribution("carla")
@@ -166,7 +167,7 @@ class LeaderboardEvaluator(object):
             settings.synchronous_mode = False
             settings.fixed_delta_seconds = None
             self.world.apply_settings(settings)
-            self.traffic_manager.set_synchronous_mode(False)
+            self.trafficManager.set_synchronous_mode(False)
 
         if self.manager:
             self.manager.cleanup()

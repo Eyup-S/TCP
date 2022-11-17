@@ -1,14 +1,18 @@
 #!/bin/bash
-export CARLA_ROOT= PATH_TO_CARLA
+export CARLA_ROOT=${1:-/home/transfuser/autonomous_car/transfuser/carla}
+export WORK_DIR=${2:-/home/transfuser/TCP}
 export CARLA_SERVER=${CARLA_ROOT}/CarlaUE4.sh
+export PYTHONPATH=$PYTHONPATH:${CARLA_ROOT}
 export PYTHONPATH=$PYTHONPATH:${CARLA_ROOT}/PythonAPI
 export PYTHONPATH=$PYTHONPATH:${CARLA_ROOT}/PythonAPI/carla
 export PYTHONPATH=$PYTHONPATH:$CARLA_ROOT/PythonAPI/carla/dist/carla-0.9.10-py3.7-linux-x86_64.egg
-export PYTHONPATH=$PYTHONPATH:leaderboard
-export PYTHONPATH=$PYTHONPATH:leaderboard/team_code
-export PYTHONPATH=$PYTHONPATH:scenario_runner
+export PYTHONPATH=$PYTHONPATH:${WORK_DIR}/leaderboard
+export PYTHONPATH=$PYTHONPATH:${WORK_DIR}/leaderboard/team_code
+export PYTHONPATH=$PYTHONPATH:${WORK_DIR}/scenario_runner
+export PYTHONPATH=$PYTHONPATH:${WORK_DIR}
+export PYTHONPATH=$PYTHONPATH:${WORK_DIR}/roach
 
-export LEADERBOARD_ROOT=leaderboard
+export LEADERBOARD_ROOT=${WORK_DIR}/leaderboard
 export CHALLENGE_TRACK_CODENAME=SENSORS
 export PORT=2000
 export TM_PORT=8000
@@ -19,12 +23,12 @@ export DATA_COLLECTION=True
 
 
 # Roach data collection
-export ROUTES=leaderboard/data/TCP_training_routes/routes_town01.xml
-export TEAM_AGENT=team_code/roach_ap_agent.py
-export TEAM_CONFIG=roach/config/config_agent.yaml
-export CHECKPOINT_ENDPOINT=data_collect_town01_results.json
-export SCENARIOS=leaderboard/data/scenarios/all_towns_traffic_scenarios.json
-export SAVE_PATH=data/data_collect_town01_results/
+export ROUTES=${WORK_DIR}/leaderboard/data/TCP_training_routes/routes_town02_val.xml
+export TEAM_AGENT=${WORK_DIR}/team_code/roach_ap_agent.py
+export TEAM_CONFIG=${WORK_DIR}/roach/config/config_agent.yaml
+export CHECKPOINT_ENDPOINT=${WORK_DIR}/results/data_collect_town02_results.json
+export SCENARIOS=${WORK_DIR}/leaderboard/data/scenarios/town02_all_scenarios.json
+export SAVE_PATH=${WORK_DIR}/data/data_collect_town05_results/
 
 
 
@@ -40,6 +44,6 @@ python3 ${LEADERBOARD_ROOT}/leaderboard/leaderboard_evaluator.py \
 --record=${RECORD_PATH} \
 --resume=${RESUME} \
 --port=${PORT} \
---trafficManagerPort=${TM_PORT}
+#--trafficManagerPort=${TM_PORT}
 
 
