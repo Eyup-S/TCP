@@ -38,7 +38,7 @@ class NpcVehicleControl(BasicControl):
         self._local_planner = LocalPlanner(  # pylint: disable=undefined-variable
             self._actor, opt_dict={
                 'target_speed': self._target_speed * 3.6,
-                    'lateral_control_dict': self._args})
+                'lateral_control_dict': self._args})
 
         if self._waypoints:
             self._update_plan()
@@ -54,6 +54,12 @@ class NpcVehicleControl(BasicControl):
             plan.append((waypoint, RoadOption.LANEFOLLOW))
         self._local_planner.set_global_plan(plan)
 
+    def _update_offset(self):
+        """
+        Update the plan (waypoint list) of the LocalPlanner
+        """
+        self._local_planner._vehicle_controller._lat_controller._offset = self._offset   # pylint: disable=protected-access
+
     def reset(self):
         """
         Reset the controller
@@ -67,6 +73,9 @@ class NpcVehicleControl(BasicControl):
     def run_step(self):
         """
         Execute on tick of the controller's control loop
+
+        Note: Negative target speeds are not yet supported.
+              Try using simple_vehicle_control or vehicle_longitudinal_control.
 
         If _waypoints are provided, the vehicle moves towards the next waypoint
         with the given _target_speed, until reaching the final waypoint. Upon reaching
@@ -84,7 +93,15 @@ class NpcVehicleControl(BasicControl):
             self._waypoints_updated = False
             self._update_plan()
 
+        if self._offset_updated:
+            self._offset_updated = False
+            self._update_offset()
+
         target_speed = self._target_speed
+        # If target speed is negavite, raise an exception
+        if target_speed < 0:
+            raise NotImplementedError("Negative target speeds are not yet supported")
+
         self._local_planner.set_speed(target_speed * 3.6)
         control = self._local_planner.run_step(debug=False)
 

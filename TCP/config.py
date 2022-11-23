@@ -54,7 +54,7 @@ class GlobalConfig:
 	value_weight = 0.001
 	features_weight = 0.05
 
-	rl_ckpt = "roach/log/ckpt_11833344.pth"
+	rl_ckpt = "/home/transfuser/autonomous_car/TCP-Eyup/TCP/roach/log/ckpt_11833344.pth"
 
 	img_aug = True
 

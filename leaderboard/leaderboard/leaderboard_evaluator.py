@@ -99,6 +99,7 @@ class LeaderboardEvaluator(object):
         self.sensors = None
         self.sensor_icons = []
         self._vehicle_lights = carla.VehicleLightState.Position | carla.VehicleLightState.LowBeam
+        
 
         # First of all, we need to create the client that will send the requests
         # to the simulator. Here we'll assume the simulator is accepting
@@ -107,11 +108,14 @@ class LeaderboardEvaluator(object):
         if args.timeout:
             self.client_timeout = float(args.timeout)
         self.client.set_timeout(self.client_timeout)
+        self.traffic_manager = self.client.get_trafficmanager(int(8000))
 
         try:
             #self.traffic_manager = self.client.get_trafficmanager(int(args.trafficManagerPort))
-            self.traffic_manager = self.client.get_trafficmanager(8000)
+            self.traffic_manager = self.client.get_trafficmanager(int(8000))
+            print("try girdi")
         except Exception as e:
+            print("exception girdi")
             print(e)
         dist = pkg_resources.get_distribution("carla")
         # if dist.version != 'leaderboard':
@@ -249,7 +253,8 @@ class LeaderboardEvaluator(object):
 
         CarlaDataProvider.set_client(self.client)
         CarlaDataProvider.set_world(self.world)
-        CarlaDataProvider.set_traffic_manager_port(int(args.trafficManagerPort))
+        #CarlaDataProvider.set_traffic_manager_port(int(args.trafficManagerPort))
+        CarlaDataProvider.set_traffic_manager_port(int(8000))
 
         if args.weather != "none":
             assert args.weather in WEATHERS
@@ -386,26 +391,27 @@ class LeaderboardEvaluator(object):
         print("\033[1m> Running the route\033[0m")
 
         # Run the scenario
-        # try:
-        self.manager.run_scenario()
+        try:
+            self.manager.run_scenario()
 
-        # except AgentError as e:
-        #     # The agent has failed -> stop the route
-        #     print("\n\033[91mStopping the route, the agent has crashed:")
-        #     print("> {}\033[0m\n".format(e))
-        #     traceback.print_exc()
+        except AgentError as e:
+            # The agent has failed -> stop the route
+            print("\n\033[91mStopping the route, the agent has crashed:")
+            print("> {}\033[0m\n".format(e))
+            traceback.print_exc()
 
-        #     crash_message = "Agent crashed"
+            crash_message = "Agent crashed"
 
-        # except Exception as e:
-        #     print("\n\033[91mError during the simulation:")
-        #     print("> {}\033[0m\n".format(e))
-        #     traceback.print_exc()
+        except Exception as e:
+            print("\n\033[91mError during the simulation:")
+            print("> {}\033[0m\n".format(e))
+            traceback.print_exc()
 
-        #     crash_message = "Simulation crashed"
-        #     entry_status = "Crashed"
+            crash_message = "Simulation crashed"
+            entry_status = "Crashed"
 
         # Stop the scenario
+        print("debug 6")
         try:
             print("\033[1m> Stopping the route\033[0m")
             self.manager.stop_scenario()

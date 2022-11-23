@@ -60,9 +60,8 @@ class CarlaDataProvider(object):  # pylint: disable=too-many-public-methods
     _blueprint_library = None
     _ego_vehicle_route = None
     _traffic_manager_port = 8000
-
-    _ego_vehicle = None
-    _rng = random.RandomState(2000)
+    _random_seed = 2000
+    _rng = random.RandomState(_random_seed)
 
     @staticmethod
     def register_actor(actor):
@@ -174,20 +173,6 @@ class CarlaDataProvider(object):  # pylint: disable=too-many-public-methods
         return CarlaDataProvider._client
 
     @staticmethod
-    def set_ego(vehicle):
-        """
-        Set the ego vehicle
-        """
-        CarlaDataProvider._ego_vehicle = vehicle
-
-    @staticmethod
-    def get_ego():
-        """
-        Get the CARLA ego
-        """
-        return CarlaDataProvider._ego_vehicle
-
-    @staticmethod
     def set_world(world):
         """
         Set the world and world settings
@@ -198,13 +183,6 @@ class CarlaDataProvider(object):  # pylint: disable=too-many-public-methods
         CarlaDataProvider._blueprint_library = world.get_blueprint_library()
         CarlaDataProvider.generate_spawn_points()
         CarlaDataProvider.prepare_map()
-
-    @staticmethod
-    def set_weather(weather):
-        """
-        Set the weather of the world
-        """
-        CarlaDataProvider._world.set_weather(weather)
 
     @staticmethod
     def get_world():
@@ -812,5 +790,4 @@ class CarlaDataProvider(object):  # pylint: disable=too-many-public-methods
         CarlaDataProvider._client = None
         CarlaDataProvider._spawn_points = None
         CarlaDataProvider._spawn_index = 0
-        CarlaDataProvider._ego_vehicle = None
-        CarlaDataProvider._rng = random.RandomState(2000)
+        CarlaDataProvider._rng = random.RandomState(CarlaDataProvider._random_seed)

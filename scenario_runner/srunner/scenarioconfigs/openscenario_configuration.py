@@ -34,7 +34,7 @@ class OpenScenarioConfiguration(ScenarioConfiguration):
     def __init__(self, filename, client):
 
         self.xml_tree = ET.parse(filename)
-        self._filename = filename
+        self.filename = filename
 
         self._validate_openscenario_configuration()
         self.client = client
@@ -82,7 +82,7 @@ class OpenScenarioConfiguration(ScenarioConfiguration):
         """
         Parse the given OpenSCENARIO config file, set and validate parameters
         """
-        OpenScenarioParser.set_osc_filepath(os.path.dirname(self._filename))
+        OpenScenarioParser.set_osc_filepath(os.path.dirname(self.filename))
 
         self._check_version()
         self._load_catalogs()
@@ -124,8 +124,8 @@ class OpenScenarioConfiguration(ScenarioConfiguration):
                 continue
 
             catalog_path = catalog.find("Directory").attrib.get('path') + "/" + catalog_type + "Catalog.xosc"
-            if not os.path.isabs(catalog_path) and "xosc" in self._filename:
-                catalog_path = os.path.dirname(os.path.abspath(self._filename)) + "/" + catalog_path
+            if not os.path.isabs(catalog_path) and "xosc" in self.filename:
+                catalog_path = os.path.dirname(os.path.abspath(self.filename)) + "/" + catalog_path
 
             if not os.path.isfile(catalog_path):
                 self.logger.warning(" The %s path for the %s Catalog is invalid", catalog_path, catalog_type)
@@ -146,6 +146,7 @@ class OpenScenarioConfiguration(ScenarioConfiguration):
         self.name = header.attrib.get('description', 'Unknown')
 
         if self.name.startswith("CARLA:"):
+            self.name = self.name[6:]
             OpenScenarioParser.set_use_carla_coordinate_system()
 
     def _set_carla_town(self):
@@ -160,7 +161,7 @@ class OpenScenarioConfiguration(ScenarioConfiguration):
 
         if self.town is not None and ".xodr" in self.town:
             if not os.path.isabs(self.town):
-                self.town = os.path.dirname(os.path.abspath(self._filename)) + "/" + self.town
+                self.town = os.path.dirname(os.path.abspath(self.filename)) + "/" + self.town
             if not os.path.exists(self.town):
                 raise AttributeError("The provided RoadNetwork '{}' does not exist".format(self.town))
 
@@ -220,7 +221,7 @@ class OpenScenarioConfiguration(ScenarioConfiguration):
                     elif entry.tag == "MiscObject":
                         self._extract_misc_information(entry, rolename, entry, args)
                     else:
-                        self.logger.error(
+                        self.logger.debug(
                             " A CatalogReference specifies a reference that is not an Entity. Skipping...")
 
                 for vehicle in obj.iter("Vehicle"):

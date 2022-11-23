@@ -67,7 +67,7 @@ def get_collision(p1, v1, p2, v2):
 
 
 class ROACHAgent(autonomous_agent.AutonomousAgent):
-	def setup(self, path_to_conf_file, ckpt="roach/log/ckpt_11833344.pth"):
+	def setup(self, path_to_conf_file, ckpt="/home/transfuser/autonomous_car/TCP-Eyup/TCP/roach/log/ckpt_11833344.pth"):
 		self._render_dict = None
 		self.supervision_dict = None
 		self._ckpt = ckpt
@@ -153,7 +153,7 @@ class ROACHAgent(autonomous_agent.AutonomousAgent):
 		angle = 0.0 if np.isnan(angle) else angle 
 
 		return angle
-	
+	print("debug 1")
 
 	def _truncate_global_route_till_local_target(self, windows_size=5):
 		ev_location = self._ego_vehicle.get_location()
@@ -193,7 +193,7 @@ class ROACHAgent(autonomous_agent.AutonomousAgent):
 
 		self._plan_gps_HACK = global_plan_gps
 		self._plan_HACK = global_plan_world_coord
-
+	print("debug 2")
 	def sensors(self):
 		return [
 				{
@@ -280,7 +280,7 @@ class ROACHAgent(autonomous_agent.AutonomousAgent):
 
 		
 		return result, obs_dict, birdview_obs['rendered'], target_gps, target_command
-
+	print("debug 3")
 	def im_render(self, render_dict):
 		im_birdview = render_dict['rendered']
 		h, w, c = im_birdview.shape
@@ -361,7 +361,7 @@ class ROACHAgent(autonomous_agent.AutonomousAgent):
 		control.steer = steer + 1e-2 * np.random.randn()
 		self.last_control = control
 		return control
-
+	print("debug 4")
 	def collision_detect(self):
 		actors = self._world.get_actors()
 
@@ -395,7 +395,7 @@ class ROACHAgent(autonomous_agent.AutonomousAgent):
 				return walker
 
 		return None
-
+	print("debug 5")
 	def _is_vehicle_hazard(self, vehicle_list):
 		z = self._ego_vehicle.get_location().z
 

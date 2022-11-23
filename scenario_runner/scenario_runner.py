@@ -41,7 +41,7 @@ from srunner.tools.scenario_parser import ScenarioConfigurationParser
 from srunner.tools.route_parser import RouteParser
 
 # Version of scenario_runner
-VERSION = '0.9.9'
+VERSION = '0.9.10'
 
 
 class ScenarioRunner(object):
@@ -88,9 +88,11 @@ class ScenarioRunner(object):
         self.client = carla.Client(args.host, int(args.port))
         self.client.set_timeout(self.client_timeout)
 
+        self.traffic_manager = self.client.get_trafficmanager(int(self._args.trafficManagerPort))
+
         dist = pkg_resources.get_distribution("carla")
-        if LooseVersion(dist.version) < LooseVersion('0.9.8'):
-            raise ImportError("CARLA version 0.9.8 or newer required. CARLA version found: {}".format(dist))
+        if LooseVersion(dist.version) < LooseVersion('0.9.10'):
+            raise ImportError("CARLA version 0.9.10 or newer required. CARLA version found: {}".format(dist))
 
         # Load agent if requested via command line args
         # If something goes wrong an exception will be thrown by importlib (ok here)
@@ -168,13 +170,15 @@ class ScenarioRunner(object):
         Remove and destroy all actors
         """
         # Simulation still running and in synchronous mode?
-        if self.manager is not None and self.manager.get_running_status() \
-                and self.world is not None and self._args.sync:
-            # Reset to asynchronous mode
-            settings = self.world.get_settings()
-            settings.synchronous_mode = False
-            settings.fixed_delta_seconds = None
-            self.world.apply_settings(settings)
+        if self.world is not None and self._args.sync:
+            try:
+                # Reset to asynchronous mode
+                settings = self.world.get_settings()
+                settings.synchronous_mode = False
+                settings.fixed_delta_seconds = None
+                self.world.apply_settings(settings)
+            except RuntimeError:
+                sys.exit(-1)
 
         self.manager.cleanup()
 
@@ -239,16 +243,20 @@ class ScenarioRunner(object):
         # Create the filename
         current_time = str(datetime.now().strftime('%Y-%m-%d-%H-%M-%S'))
         junit_filename = None
+        json_filename = None
         config_name = config.name
         if self._args.outputDir != '':
             config_name = os.path.join(self._args.outputDir, config_name)
+
         if self._args.junit:
             junit_filename = config_name + current_time + ".xml"
+        if self._args.json:
+            json_filename = config_name + current_time + ".json"
         filename = None
         if self._args.file:
             filename = config_name + current_time + ".txt"
 
-        if not self.manager.analyze_scenario(self._args.output, filename, junit_filename):
+        if not self.manager.analyze_scenario(self._args.output, filename, junit_filename, json_filename):
             print("All scenario tests were passed successfully!")
         else:
             print("Not all scenario tests were successful")
@@ -318,6 +326,9 @@ class ScenarioRunner(object):
             settings.synchronous_mode = True
             settings.fixed_delta_seconds = 1.0 / self.frame_rate
             self.world.apply_settings(settings)
+
+            self.traffic_manager.set_synchronous_mode(True)
+            self.traffic_manager.set_random_device_seed(int(self._args.trafficManagerSeed))
 
         CarlaDataProvider.set_client(self.client)
         CarlaDataProvider.set_world(self.world)
@@ -509,6 +520,8 @@ def main():
                         help='Set the CARLA client timeout value in seconds')
     parser.add_argument('--trafficManagerPort', default='8000',
                         help='Port to use for the TrafficManager (default: 8000)')
+    parser.add_argument('--trafficManagerSeed', default='0',
+                        help='Seed used by the TrafficManager (default: 0)')
     parser.add_argument('--sync', action='store_true',
                         help='Forces the simulation to run synchronously')
     parser.add_argument('--list', action="store_true", help='List all supported scenarios and exit')
@@ -526,6 +539,7 @@ def main():
     parser.add_argument('--output', action="store_true", help='Provide results on stdout')
     parser.add_argument('--file', action="store_true", help='Write results into a txt file')
     parser.add_argument('--junit', action="store_true", help='Write results into a junit file')
+    parser.add_argument('--json', action="store_true", help='Write results into a JSON file')
     parser.add_argument('--outputDir', default='', help='Directory for output files (default: this directory)')
 
     parser.add_argument('--configFile', default='', help='Provide an additional scenario configuration file (*.xml)')
