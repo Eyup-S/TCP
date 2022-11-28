@@ -27,7 +27,9 @@ import carla
 import copy
 import signal
 
-
+#from scenario_runner.srunner.scenariomanager.carla_data_provider import *
+#from scenario_runner.srunner.scenariomanager.timer import GameTime
+#from scenario_runner.srunner.scenariomanager.watchdog import Watchdog
 from srunner.scenariomanager.carla_data_provider import *
 from srunner.scenariomanager.timer import GameTime
 from srunner.scenariomanager.watchdog import Watchdog

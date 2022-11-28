@@ -9,8 +9,6 @@
 This module provides a parser for scenario configuration files based on OpenSCENARIO
 """
 
-from __future__ import print_function
-
 from distutils.util import strtobool
 import copy
 import datetime
@@ -31,9 +29,8 @@ from srunner.scenariomanager.scenarioatomics.atomic_behaviors import (TrafficLig
                                                                       ChangeActorTargetSpeed,
                                                                       ChangeActorControl,
                                                                       ChangeActorWaypoints,
+                                                                      ChangeActorWaypointsToReachPosition,
                                                                       ChangeActorLateralMotion,
-                                                                      ChangeActorLaneOffset,
-                                                                      SyncArrivalOSC,
                                                                       Idle)
 # pylint: disable=unused-import
 # For the following includes the pylint check is disabled, as these are accessed via globals()
@@ -67,19 +64,6 @@ from srunner.scenariomanager.scenarioatomics.atomic_trigger_conditions import (I
                                                                                WaitForTrafficLightState)
 from srunner.scenariomanager.timer import TimeOut, SimulationTimeCondition
 from srunner.tools.py_trees_port import oneshot_behavior
-
-
-def oneshot_with_check(variable_name, behaviour, name=None):
-    """
-    Check if the blackboard contains already variable_name and
-    return a oneshot_behavior for behaviour.
-    """
-    blackboard = py_trees.blackboard.Blackboard()
-    # check if the variable_name already exists in the blackboard
-    if blackboard.get(variable_name) is not None:
-        print("Warning: {} is already used before. Check your XOSC for duplicated names".format(variable_name))
-
-    return oneshot_behavior(variable_name, behaviour, name)
 
 
 class OpenScenarioParser(object):
@@ -285,12 +269,7 @@ class OpenScenarioParser(object):
         returns:
            friction (float)
         """
-
-        if xml_tree.findall('.//EnvironmentAction'):
-            node = xml_tree.findall('.//EnvironmentAction')[0]
-            set_environment = next(node.iter("EnvironmentAction"))
-        else:
-            return 1.0
+        set_environment = next(xml_tree.iter("EnvironmentAction"))
 
         if sum(1 for _ in set_environment.iter("Weather")) != 0:
             environment = set_environment.find("Environment")
@@ -319,12 +298,7 @@ class OpenScenarioParser(object):
         returns:
            Weather (srunner.scenariomanager.weather_sim.Weather)
         """
-
-        if xml_tree.findall('.//EnvironmentAction'):
-            node = xml_tree.findall('.//EnvironmentAction')[0]
-            set_environment = next(node.iter("EnvironmentAction"))
-        else:
-            return Weather(carla.WeatherParameters())
+        set_environment = next(xml_tree.iter("EnvironmentAction"))
 
         if sum(1 for _ in set_environment.iter("Weather")) != 0:
             environment = set_environment.find("Environment")
@@ -412,9 +386,7 @@ class OpenScenarioParser(object):
             catalogs: XML Catalogs that could contain the Route
 
         returns:
-           waypoints: List of route waypoints = (waypoint, routing strategy)
-                      where the strategy is a string indicating if the fastest/shortest/etc.
-                      route should be used.
+           waypoints: List of route waypoints
         """
         route = None
 
@@ -430,10 +402,8 @@ class OpenScenarioParser(object):
         if route is not None:
             for waypoint in route.iter('Waypoint'):
                 position = waypoint.find('Position')
-                routing_option = str(waypoint.attrib.get('routeStrategy'))
-                waypoints.append((position, routing_option))
-        else:
-            raise AttributeError("No waypoints has been set")
+                transform = OpenScenarioParser.convert_position_to_transform(position)
+                waypoints.append(transform)
 
         return waypoints
 
@@ -702,6 +672,9 @@ class OpenScenarioParser(object):
                     condition_operator = OpenScenarioParser.operators[condition_rule]
 
                     condition_freespace = strtobool(headtime_condition.attrib.get('freespace', False))
+                    if condition_freespace:
+                        raise NotImplementedError(
+                            "TimeHeadwayCondition: freespace attribute is currently not implemented")
                     condition_along_route = strtobool(headtime_condition.attrib.get('alongRoute', False))
 
                     for actor in actor_list:
@@ -713,7 +686,7 @@ class OpenScenarioParser(object):
                             headtime_condition.attrib.get('entityRef', None)))
 
                     atomic = InTimeToArrivalToVehicle(
-                        trigger_actor, triggered_actor, condition_value, condition_freespace,
+                        trigger_actor, triggered_actor, condition_value,
                         condition_along_route, condition_operator, condition_name
                     )
 
@@ -723,11 +696,13 @@ class OpenScenarioParser(object):
                     condition_rule = ttc_condition.attrib.get('rule')
                     condition_operator = OpenScenarioParser.operators[condition_rule]
 
-                    condition_value = float(ttc_condition.attrib.get('value'))
+                    condition_value = ttc_condition.attrib.get('value')
                     condition_target = ttc_condition.find('TimeToCollisionConditionTarget')
-                    entity_ref_ = condition_target.find('EntityRef')
 
                     condition_freespace = strtobool(ttc_condition.attrib.get('freespace', False))
+                    if condition_freespace:
+                        raise NotImplementedError(
+                            "TimeToCollisionCondition: freespace attribute is currently not implemented")
                     condition_along_route = strtobool(ttc_condition.attrib.get('alongRoute', False))
 
                     if condition_target.find('Position') is not None:
@@ -736,15 +711,15 @@ class OpenScenarioParser(object):
                             trigger_actor, position, condition_value, condition_along_route, condition_operator)
                     else:
                         for actor in actor_list:
-                            if entity_ref_.attrib.get('entityRef', None) == actor.attributes['role_name']:
+                            if ttc_condition.attrib.get('EntityRef', None) == actor.attributes['role_name']:
                                 triggered_actor = actor
                                 break
                         if triggered_actor is None:
                             raise AttributeError("Cannot find actor '{}' for condition".format(
-                                entity_ref_.attrib.get('entityRef', None)))
+                                ttc_condition.attrib.get('EntityRef', None)))
 
                         atomic = InTimeToArrivalToVehicle(
-                            trigger_actor, triggered_actor, condition_value, condition_freespace,
+                            trigger_actor, triggered_actor, condition_value,
                             condition_along_route, condition_operator, condition_name)
                 elif entity_condition.find('AccelerationCondition') is not None:
                     accel_condition = entity_condition.find('AccelerationCondition')
@@ -917,7 +892,7 @@ class OpenScenarioParser(object):
         return new_atomic
 
     @staticmethod
-    def convert_maneuver_to_atomic(action, actor, actor_list, catalogs):
+    def convert_maneuver_to_atomic(action, actor, catalogs):
         """
         Convert an OpenSCENARIO maneuver action into a Behavior atomic
 
@@ -954,9 +929,9 @@ class OpenScenarioParser(object):
                     policy=py_trees.common.ParallelPolicy.SUCCESS_ON_ALL, name=maneuver_name)
 
                 env_behavior.add_child(
-                    oneshot_with_check(variable_name=maneuver_name + ">WeatherUpdate", behaviour=weather_behavior))
+                    oneshot_behavior(variable_name=maneuver_name + ">WeatherUpdate", behaviour=weather_behavior))
                 env_behavior.add_child(
-                    oneshot_with_check(variable_name=maneuver_name + ">FrictionUpdate", behaviour=friction_behavior))
+                    oneshot_behavior(variable_name=maneuver_name + ">FrictionUpdate", behaviour=friction_behavior))
 
                 return env_behavior
 
@@ -1000,7 +975,7 @@ class OpenScenarioParser(object):
                         value_type = relative_speed.attrib.get('speedTargetValueType')
                         continuous = relative_speed.attrib.get('continuous')
 
-                        for traffic_actor in actor_list:
+                        for traffic_actor in CarlaDataProvider.get_world().get_actors():
                             if 'role_name' in traffic_actor.attributes and traffic_actor.attributes['role_name'] == obj:
                                 obj_actor = traffic_actor
 
@@ -1022,11 +997,10 @@ class OpenScenarioParser(object):
                 private_action = private_action.find('LateralAction')
                 if private_action.find('LaneChangeAction') is not None:
                     # Note: LaneChangeActions are currently only supported for RelativeTargetLane
+                    #       with +1 or -1 referring to the action actor
                     lat_maneuver = private_action.find('LaneChangeAction')
                     target_lane_rel = float(lat_maneuver.find("LaneChangeTarget").find(
                         "RelativeTargetLane").attrib.get('value', 0))
-                    direction = "left" if target_lane_rel < 0 else "right"
-                    lane_changes = abs(target_lane_rel)
                     # duration and distance
                     distance = float('inf')
                     duration = float('inf')
@@ -1037,79 +1011,17 @@ class OpenScenarioParser(object):
                     else:
                         duration = float(
                             lat_maneuver.find("LaneChangeActionDynamics").attrib.get('value', float("inf")))
-                    atomic = ChangeActorLateralMotion(actor, direction=direction,
+                    atomic = ChangeActorLateralMotion(actor,
+                                                      direction="left" if target_lane_rel < 0 else "right",
                                                       distance_lane_change=distance,
                                                       distance_other_lane=1000,
-                                                      lane_changes=lane_changes,
                                                       name=maneuver_name)
-                elif private_action.find('LaneOffsetAction') is not None:
-                    lat_maneuver = private_action.find('LaneOffsetAction')
-                    continuous = strtobool(lat_maneuver.attrib.get('continuous', True))
-                    # Parsing of the different Dynamic shapes is missing
-
-                    lane_target_offset = lat_maneuver.find('LaneOffsetTarget')
-                    if lane_target_offset.find('AbsoluteTargetLaneOffset') is not None:
-                        absolute_offset = float(
-                            lane_target_offset.find('AbsoluteTargetLaneOffset').attrib.get('value', 0))
-                        atomic = ChangeActorLaneOffset(
-                            actor, absolute_offset, continuous=continuous, name=maneuver_name)
-
-                    elif lane_target_offset.find('RelativeTargetLaneOffset') is not None:
-                        relative_target_offset = lane_target_offset.find('RelativeTargetLaneOffset')
-                        relative_offset = float(relative_target_offset.attrib.get('value', 0))
-
-                        relative_actor = None
-                        for _actor in actor_list:
-                            if relative_target_offset.attrib.get('entityRef', None) == _actor.attributes['role_name']:
-                                relative_actor = _actor
-                                break
-
-                        if relative_actor is None:
-                            raise AttributeError("Cannot find actor '{}' for condition".format(
-                                relative_target_offset.attrib.get('entityRef', None)))
-
-                        atomic = ChangeActorLaneOffset(actor, relative_offset, relative_actor,
-                                                       continuous=continuous, name=maneuver_name)
-
-                    else:
-                        raise AttributeError("Unknown target offset")
                 else:
                     raise AttributeError("Unknown lateral action")
             elif private_action.find('VisibilityAction') is not None:
                 raise NotImplementedError("Visibility actions are not yet supported")
             elif private_action.find('SynchronizeAction') is not None:
-                sync_action = private_action.find('SynchronizeAction')
-
-                master_actor = None
-                for actor_ins in actor_list:
-                    if sync_action.attrib.get('masterEntityRef', None) == actor_ins.attributes['role_name']:
-                        master_actor = actor_ins
-                        break
-
-                if master_actor is None:
-                    raise AttributeError("Cannot find actor '{}' for condition".format(
-                        sync_action.attrib.get('masterEntityRef', None)))
-
-                master_position = OpenScenarioParser.convert_position_to_transform(
-                    sync_action.find('TargetPositionMaster'))
-                position = OpenScenarioParser.convert_position_to_transform(sync_action.find('TargetPosition'))
-
-                if sync_action.find("FinalSpeed").find("AbsoluteSpeed") is not None:
-                    final_speed = float(sync_action.find("FinalSpeed").find(
-                        "AbsoluteSpeed").attrib.get('value', 0))
-                    atomic = SyncArrivalOSC(
-                        actor, master_actor, position, master_position, final_speed, name=maneuver_name)
-
-                # relative velocity to given actor
-                elif sync_action.find("FinalSpeed").find("RelativeSpeedToMaster") is not None:
-                    relative_speed = sync_action.find("FinalSpeed").find("RelativeSpeedToMaster")
-                    final_speed = float(relative_speed.attrib.get('value', 0))
-                    relative_type = relative_speed.attrib.get('speedTargetValueType')
-                    atomic = SyncArrivalOSC(
-                        actor, master_actor, position, master_position, final_speed,
-                        relative_to_master=True, relative_type=relative_type, name=maneuver_name)
-                else:
-                    raise AttributeError("Unknown speed action")
+                raise NotImplementedError("Synchronization actions are not yet supported")
             elif private_action.find('ActivateControllerAction') is not None:
                 private_action = private_action.find('ActivateControllerAction')
                 activate = strtobool(private_action.attrib.get('longitudinal'))
@@ -1117,11 +1029,9 @@ class OpenScenarioParser(object):
             elif private_action.find('ControllerAction') is not None:
                 controller_action = private_action.find('ControllerAction')
                 module, args = OpenScenarioParser.get_controller(controller_action, catalogs)
-                atomic = ChangeActorControl(actor, control_py_module=module, args=args,
-                                            scenario_file_path=OpenScenarioParser.osc_filepath)
+                atomic = ChangeActorControl(actor, control_py_module=module, args=args)
             elif private_action.find('TeleportAction') is not None:
-                teleport_action = private_action.find('TeleportAction')
-                position = teleport_action.find('Position')
+                position = private_action.find('TeleportAction')
                 atomic = ActorTransformSetterToOSCPosition(actor, position, name=maneuver_name)
             elif private_action.find('RoutingAction') is not None:
                 private_action = private_action.find('RoutingAction')
@@ -1135,8 +1045,8 @@ class OpenScenarioParser(object):
                 elif private_action.find('AcquirePositionAction') is not None:
                     route_action = private_action.find('AcquirePositionAction')
                     osc_position = route_action.find('Position')
-                    waypoints = [(osc_position, 'fastest')]
-                    atomic = ChangeActorWaypoints(actor, waypoints=waypoints, name=maneuver_name)
+                    position = OpenScenarioParser.convert_position_to_transform(osc_position)
+                    atomic = ChangeActorWaypointsToReachPosition(actor, position=position, name=maneuver_name)
                 else:
                     raise AttributeError("Unknown private routing action")
             else:
